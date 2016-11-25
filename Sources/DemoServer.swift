@@ -185,9 +185,9 @@ public func demoServer(publicDir: String) -> HttpServer {
         session.writeBinary(binary)
     })
     
-    server.notFoundHandler = { r in
-        return .MovedPermanently("https://github.com/404")
-    }
+    server.notFoundHandler = HttpCallbackRoute(callback: { r in
+        return .MovedPermanently("https:github.com/404")
+    })
     
     server.middleware.append { r in
         print("Middleware: \(r.address) -> \(r.method) -> \(r.path)")

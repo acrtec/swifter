@@ -38,7 +38,7 @@ public class HttpServer: HttpServerIO {
     
     public subscript(path: String) -> (HttpRequest -> HttpResponse)? {
         set {
-            router.register(nil, path: path, handler: newValue)
+            router.register(nil, path: path, callback: newValue)
         }
         get { return nil }
     }
@@ -47,7 +47,7 @@ public class HttpServer: HttpServerIO {
         return router.routes();
     }
     
-    public var notFoundHandler: (HttpRequest -> HttpResponse)?
+    public var notFoundHandler: HttpRoute?
     
     public var middleware = Array<(HttpRequest) -> HttpResponse?>()
 
@@ -61,17 +61,13 @@ public class HttpServer: HttpServerIO {
             }
         }
     
-        if let result: (params: [String : String], handler: (HttpRequest -> HttpResponse)) = self.router.route(request.method, path: request.path) {
-            completion(result.params, result.handler)
+        if self.router.dispatch(request, completion: completion) {
             return
-        }
-        
-        if let notFoundHandler = self.notFoundHandler {
-            completion([:], notFoundHandler)
+        } else if let notFoundHandler = self.notFoundHandler where notFoundHandler.dispatch(request, completion: completion) {
             return
+        } else {
+            super.dispatch(request, completion: completion)
         }
-        
-        super.dispatch(request, completion: completion)
     }
     
     public struct MethodRoute {
@@ -79,7 +75,7 @@ public class HttpServer: HttpServerIO {
         public let router: HttpRouter
         public subscript(path: String) -> (HttpRequest -> HttpResponse)? {
             set {
-                router.register(method, path: path, handler: newValue)
+                router.register(method, path: path, callback: newValue)
             }
             get { return nil }
         }
