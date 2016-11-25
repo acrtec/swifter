@@ -54,9 +54,10 @@ public class HttpServerIO {
                     dispatch_async(self.queue) {
                         self.sockets.insert(socket)
                     }
-                    self.handleConnection(socket)
-                    dispatch_async(self.queue) {
-                        self.sockets.remove(socket)
+                    self.handleConnection(socket) { socket in
+                        dispatch_async(self.queue) {
+                            self.sockets.remove(socket)
+                        }
                     }
                 })
             }
@@ -86,37 +87,41 @@ public class HttpServerIO {
         completion(params, handler)
     }
     
-    private func handleConnection(socket: Socket) {
+    private func handleConnection(socket: Socket, completion: (Socket -> Void)) {
         let parser = HttpParser()
 
         if self.operating, let request = try? parser.readHttpRequest(socket) {
             request.address = try? socket.peername()
             dispatch(request, completion: { (params, handler) in
-                dispatch_async(self.queue, {
-                    request.params = params
-                    let response = handler(request)
-                    var keepConnection = parser.supportsKeepAlive(request.headers)
-                    do {
-                        if self.operating {
-                            keepConnection = try self.respond(socket, response: response, keepAlive: keepConnection)
-                        }
-                    } catch {
-                        print("Failed to send response: \(error)")
-                        socket.release()
+                request.params = params
+                let response = handler(request)
+                var keepConnection = parser.supportsKeepAlive(request.headers)
+                do {
+                    if self.operating {
+                        keepConnection = try self.respond(socket, response: response, keepAlive: keepConnection)
                     }
-                    
-                    if let session = response.socketSession() {
-                        session(socket)
-                        socket.release()
-                    }
-                    
-                    if keepConnection {
-                        self.handleConnection(socket)
-                    }
-                })
+                } catch {
+                    print("Failed to send response: \(error)")
+                    socket.release()
+                    completion(socket)
+                }
+                
+                if let session = response.socketSession() {
+                    session(socket)
+                    socket.release()
+                    completion(socket)
+                }
+                
+                if keepConnection {
+                    self.handleConnection(socket, completion: completion)
+                } else {
+                    socket.release()
+                    completion(socket)
+                }
             })
         } else {
             socket.release()
+            completion(socket)
         }
     }
     
