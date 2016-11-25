@@ -51,19 +51,27 @@ public class HttpServer: HttpServerIO {
     
     public var middleware = Array<(HttpRequest) -> HttpResponse?>()
 
-    override public func dispatch(request: HttpRequest) -> ([String:String], HttpRequest -> HttpResponse) {
+    public override func dispatch(request: HttpRequest,
+                                  completion: (([String : String], HttpRequest -> HttpResponse) -> Void)) {
+        
         for layer in middleware {
             if let response = layer(request) {
-                return ([:], { _ in response })
+                completion([:], { _ in response })
+                return
             }
         }
-        if let result = router.route(request.method, path: request.path) {
-            return result
+    
+        if let result: (params: [String : String], handler: (HttpRequest -> HttpResponse)) = self.router.route(request.method, path: request.path) {
+            completion(result.params, result.handler)
+            return
         }
+        
         if let notFoundHandler = self.notFoundHandler {
-            return ([:], notFoundHandler)
+            completion([:], notFoundHandler)
+            return
         }
-        return super.dispatch(request)
+        
+        super.dispatch(request, completion: completion)
     }
     
     public struct MethodRoute {

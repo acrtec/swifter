@@ -79,34 +79,45 @@ public class HttpServerIO {
         self.state = .Stopped
     }
     
-    public func dispatch(request: HttpRequest) -> ([String: String], HttpRequest -> HttpResponse) {
-        return ([:], { _ in HttpResponse.NotFound })
+    public func dispatch(request: HttpRequest, completion: (([String: String], HttpRequest -> HttpResponse) ->
+        Void)) {
+        let params: [String: String] = [:]
+        let handler: (HttpRequest -> HttpResponse) = { _ in HttpResponse.NotFound }
+        completion(params, handler)
     }
     
     private func handleConnection(socket: Socket) {
         let parser = HttpParser()
-        while self.operating, let request = try? parser.readHttpRequest(socket) {
-            let request = request
+
+        if self.operating, let request = try? parser.readHttpRequest(socket) {
             request.address = try? socket.peername()
-            let (params, handler) = self.dispatch(request)
-            request.params = params
-            let response = handler(request)
-            var keepConnection = parser.supportsKeepAlive(request.headers)
-            do {
-                if self.operating {
-                    keepConnection = try self.respond(socket, response: response, keepAlive: keepConnection)
-                }
-            } catch {
-                print("Failed to send response: \(error)")
-                break
-            }
-            if let session = response.socketSession() {
-                session(socket)
-                break
-            }
-            if !keepConnection { break }
+            dispatch(request, completion: { (params, handler) in
+                dispatch_async(self.queue, {
+                    request.params = params
+                    let response = handler(request)
+                    var keepConnection = parser.supportsKeepAlive(request.headers)
+                    do {
+                        if self.operating {
+                            keepConnection = try self.respond(socket, response: response, keepAlive: keepConnection)
+                        }
+                    } catch {
+                        print("Failed to send response: \(error)")
+                        socket.release()
+                    }
+                    
+                    if let session = response.socketSession() {
+                        session(socket)
+                        socket.release()
+                    }
+                    
+                    if keepConnection {
+                        self.handleConnection(socket)
+                    }
+                })
+            })
+        } else {
+            socket.release()
         }
-        socket.release()
     }
     
     private struct InnerWriteContext: HttpResponseBodyWriter {
