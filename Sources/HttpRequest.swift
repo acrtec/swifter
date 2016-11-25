@@ -13,6 +13,8 @@
 
 public class HttpRequest {
     
+    public init() {}
+    
     public var path: String = ""
     public var queryParams: [(String, String)] = []
     public var method: String = ""
