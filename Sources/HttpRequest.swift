@@ -15,6 +15,8 @@ public class HttpRequest {
     
     public init() {}
     
+    public var host: String?
+    public var port: NSNumber?
     public var path: String = ""
     public var queryParams: [(String, String)] = []
     public var method: String = ""
