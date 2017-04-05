@@ -34,7 +34,7 @@ public class HttpServer: HttpServerIO {
     
     public subscript(path: String) -> ((HttpRequest) -> HttpResponse)? {
         set {
-            router.register(nil, path: path, handler: newValue)
+            router.register(method: nil, path: path, callback: newValue)
         }
         get { return nil }
     }
@@ -43,23 +43,27 @@ public class HttpServer: HttpServerIO {
         return router.routes();
     }
     
-    public var notFoundHandler: ((HttpRequest) -> HttpResponse)?
+    public var notFoundHandler: HttpRoute?
     
     public var middleware = Array<(HttpRequest) -> HttpResponse?>()
 
-    override public func dispatch(_ request: HttpRequest) -> ([String:String], (HttpRequest) -> HttpResponse) {
+    public override func dispatch(request: HttpRequest,
+                                      completion: (([String : String], (HttpRequest) -> HttpResponse) -> Void)) {
+
         for layer in middleware {
             if let response = layer(request) {
-                return ([:], { _ in response })
+                completion([:], { _ in response })
+                return
             }
         }
-        if let result = router.route(request.method, path: request.path) {
-            return result
+        
+        if self.router.dispatch(request: request, completion: completion) {
+            return
+        } else if let notFoundHandler = self.notFoundHandler, notFoundHandler.dispatch(request: request, completion: completion) {
+            return
+        } else {
+            super.dispatch(request: request, completion: completion)
         }
-        if let notFoundHandler = self.notFoundHandler {
-            return ([:], notFoundHandler)
-        }
-        return super.dispatch(request)
     }
     
     public struct MethodRoute {
@@ -67,7 +71,7 @@ public class HttpServer: HttpServerIO {
         public let router: HttpRouter
         public subscript(path: String) -> ((HttpRequest) -> HttpResponse)? {
             set {
-                router.register(method, path: path, handler: newValue)
+                router.register(method: method, path: path, callback: newValue)
             }
             get { return nil }
         }

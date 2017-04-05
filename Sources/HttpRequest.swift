@@ -9,6 +9,8 @@ import Foundation
 
 public class HttpRequest {
     
+    public var host: String?
+    public var port: NSNumber?
     public var path: String = ""
     public var queryParams: [(String, String)] = []
     public var method: String = ""
@@ -16,6 +18,8 @@ public class HttpRequest {
     public var body: [UInt8] = []
     public var address: String? = ""
     public var params: [String: String] = [:]
+    
+    public init() {}
     
     public func hasTokenForHeader(_ headerName: String, token: String) -> Bool {
         guard let headerValue = headers[headerName] else {

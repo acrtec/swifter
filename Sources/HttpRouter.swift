@@ -8,14 +8,35 @@
 import Foundation
 
 
-open class HttpRouter {
+public protocol HttpRoute: class {
+    func dispatch(request: HttpRequest, completion: (([String: String], (HttpRequest) -> HttpResponse) -> Void)) -> Bool
+}
+
+open class HttpCallbackRoute: HttpRoute {
+    
+    private let callback: ((HttpRequest) -> HttpResponse)
+    
+    public init(callback: @escaping ((HttpRequest) -> HttpResponse)) {
+        self.callback = callback
+    }
+    
+    public func dispatch(request: HttpRequest,
+                         completion: (([String: String], (HttpRequest) -> HttpResponse) ->
+        Void)) -> Bool {
+        let params: [String: String] = [:]
+        completion(params, callback)
+        return true
+    }
+}
+
+open class HttpRouter: HttpRoute {
     
     public init() {
     }
     
     private class Node {
         var nodes = [String: Node]()
-        var handler: ((HttpRequest) -> HttpResponse)? = nil
+        var handler: HttpRoute? = nil
     }
     
     private var rootNode = Node()
@@ -39,7 +60,15 @@ open class HttpRouter {
         return result
     }
     
-    public func register(_ method: String?, path: String, handler: ((HttpRequest) -> HttpResponse)?) {
+    public func register(method: String?, path: String, callback: ((HttpRequest) -> HttpResponse)?) {
+        if callback != nil {
+            register(method: method, path: path, handler: HttpCallbackRoute(callback: callback!))
+        } else {
+            register(method: method, path: path, handler: nil)
+        }
+    }
+    
+    public func register(method: String?, path: String, handler: HttpRoute?) {
         var pathSegments = stripQuery(path).split("/")
         if let method = method {
             pathSegments.insert(method, at: 0)
@@ -47,25 +76,31 @@ open class HttpRouter {
             pathSegments.insert("*", at: 0)
         }
         var pathSegmentsGenerator = pathSegments.makeIterator()
-        inflate(&rootNode, generator: &pathSegmentsGenerator).handler = handler
+        let node = inflate(&rootNode, generator: &pathSegmentsGenerator)
+        node.handler = handler
     }
     
-    public func route(_ method: String?, path: String) -> ([String: String], (HttpRequest) -> HttpResponse)? {
-        if let method = method {
-            let pathSegments = (method + "/" + stripQuery(path)).split("/")
-            var pathSegmentsGenerator = pathSegments.makeIterator()
-            var params = [String:String]()
-            if let handler = findHandler(&rootNode, params: &params, generator: &pathSegmentsGenerator) {
-                return (params, handler)
-            }
-        }
-        let pathSegments = ("*/" + stripQuery(path)).split("/")
+    public func dispatch(request: HttpRequest, completion: (([String : String], (HttpRequest) -> HttpResponse) -> Void)) -> Bool {
+        let method = request.method
+        let path = request.path
+        
+        let pathSegments = (method + "/" + stripQuery(path)).split("/")
         var pathSegmentsGenerator = pathSegments.makeIterator()
         var params = [String:String]()
-        if let handler = findHandler(&rootNode, params: &params, generator: &pathSegmentsGenerator) {
-            return (params, handler)
+        if let handler = findHandler(node: &rootNode, params: &params, generator: &pathSegmentsGenerator) {
+            let _ = handler.dispatch(request: request, completion: completion)
+            return true
+        } else {
+            let pathSegments = ("*/" + stripQuery(path)).split("/")
+            var pathSegmentsGenerator = pathSegments.makeIterator()
+            var params = [String:String]()
+            if let handler = findHandler(node: &rootNode, params: &params, generator: &pathSegmentsGenerator) {
+                let _ = handler.dispatch(request: request, completion: completion)
+                return true
+            } else {
+                return false
+            }
         }
-        return nil
     }
     
     private func inflate(_ node: inout Node, generator: inout IndexingIterator<[String]>) -> Node {
@@ -80,7 +115,7 @@ open class HttpRouter {
         return node
     }
     
-    private func findHandler(_ node: inout Node, params: inout [String: String], generator: inout IndexingIterator<[String]>) -> ((HttpRequest) -> HttpResponse)? {
+    private func findHandler( node: inout Node, params: inout [String: String], generator: inout IndexingIterator<[String]>) -> HttpRoute? {
         guard let pathToken = generator.next() else {
             // if it's the last element of the requested URL, check if there is a pattern with variable tail.
             if let variableNode = node.nodes.filter({ $0.0.characters.first == ":" }).first {
@@ -105,19 +140,19 @@ open class HttpRouter {
                 return variableNode.1.handler
             }
             params[variableNode.0] = pathToken
-            return findHandler(&node.nodes[variableNode.0]!, params: &params, generator: &generator)
+            return findHandler(node: &node.nodes[variableNode.0]!, params: &params, generator: &generator)
         }
         if var node = node.nodes[pathToken] {
-            return findHandler(&node, params: &params, generator: &generator)
+            return findHandler(node: &node, params: &params, generator: &generator)
         }
         if var node = node.nodes["*"] {
-            return findHandler(&node, params: &params, generator: &generator)
+            return findHandler(node: &node, params: &params, generator: &generator)
         }
         if let startStarNode = node.nodes["**"] {
             let startStarNodeKeys = startStarNode.nodes.keys
             while let pathToken = generator.next() {
                 if startStarNodeKeys.contains(pathToken) {
-                    return findHandler(&startStarNode.nodes[pathToken]!, params: &params, generator: &generator)
+                    return findHandler(node: &startStarNode.nodes[pathToken]!, params: &params, generator: &generator)
                 }
             }
         }

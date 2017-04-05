@@ -85,9 +85,10 @@ public class HttpServerIO {
                     self.queue.async {
                         self.sockets.insert(socket)
                     }
-                    self.handleConnection(socket)
-                    self.queue.async {
-                        self.sockets.remove(socket)
+                    self.handleConnection(socket: socket) { socket in
+                        self.queue.async() {
+                            self.sockets.remove(socket)
+                        }
                     }
                 }
             }
@@ -110,35 +111,50 @@ public class HttpServerIO {
         self.state = .stopped
     }
 
-    public func dispatch(_ request: HttpRequest) -> ([String: String], (HttpRequest) -> HttpResponse) {
-        return ([:], { _ in HttpResponse.notFound })
+    public func dispatch(request: HttpRequest, completion: (([String: String], (HttpRequest) -> HttpResponse) ->
+        Void)) {
+        let params: [String: String] = [:]
+        let handler: ((HttpRequest) -> HttpResponse) = { _ in HttpResponse.notFound }
+        completion(params, handler)
     }
 
-    private func handleConnection(_ socket: Socket) {
+    private func handleConnection(socket: Socket, completion: ((Socket) -> Void)) {
+        
         let parser = HttpParser()
-        while self.operating, let request = try? parser.readHttpRequest(socket) {
-            let request = request
+        
+        if self.operating, let request = try? parser.readHttpRequest(socket) {
             request.address = try? socket.peername()
-            let (params, handler) = self.dispatch(request)
-            request.params = params
-            let response = handler(request)
-            var keepConnection = parser.supportsKeepAlive(request.headers)
-            do {
-                if self.operating {
-                    keepConnection = try self.respond(socket, response: response, keepAlive: keepConnection)
+            dispatch(request: request, completion: { (params, handler) in
+                request.params = params
+                let response = handler(request)
+                var keepConnection = parser.supportsKeepAlive(request.headers)
+                do {
+                    if self.operating {
+                        keepConnection = try self.respond(socket, response: response, keepAlive: keepConnection)
+                    }
+                } catch {
+                    print("Failed to send response: \(error)")
+                    socket.close()
+                    completion(socket)
                 }
-            } catch {
-                print("Failed to send response: \(error)")
-                break
-            }
-            if let session = response.socketSession() {
-                delegate?.socketConnectionReceived(socket)
-                session(socket)
-                break
-            }
-            if !keepConnection { break }
+                
+                if let session = response.socketSession() {
+                    session(socket)
+                    socket.close()
+                    completion(socket)
+                }
+                
+                if keepConnection {
+                    self.handleConnection(socket: socket, completion: completion)
+                } else {
+                    socket.close()
+                    completion(socket)
+                }
+            })
+        } else {
+            socket.close()
+            completion(socket)
         }
-        socket.close()
     }
 
     private struct InnerWriteContext: HttpResponseBodyWriter {
