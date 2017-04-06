@@ -9,7 +9,7 @@ import Foundation
 
 
 public protocol HttpRoute: class {
-    func dispatch(request: HttpRequest, completion: (([String: String], (HttpRequest) -> HttpResponse) -> Void)) -> Bool
+    func dispatch(request: HttpRequest, completion: @escaping (([String: String], (HttpRequest) -> HttpResponse) -> Void)) -> Bool
 }
 
 open class HttpCallbackRoute: HttpRoute {
@@ -21,7 +21,7 @@ open class HttpCallbackRoute: HttpRoute {
     }
     
     public func dispatch(request: HttpRequest,
-                         completion: (([String: String], (HttpRequest) -> HttpResponse) ->
+                         completion: @escaping (([String: String], (HttpRequest) -> HttpResponse) ->
         Void)) -> Bool {
         let params: [String: String] = [:]
         completion(params, callback)
@@ -80,7 +80,7 @@ open class HttpRouter: HttpRoute {
         node.handler = handler
     }
     
-    public func dispatch(request: HttpRequest, completion: (([String : String], (HttpRequest) -> HttpResponse) -> Void)) -> Bool {
+    public func dispatch(request: HttpRequest, completion: @escaping (([String : String], (HttpRequest) -> HttpResponse) -> Void)) -> Bool {
         let method = request.method
         let path = request.path
         

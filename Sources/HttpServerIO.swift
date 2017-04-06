@@ -111,14 +111,14 @@ public class HttpServerIO {
         self.state = .stopped
     }
 
-    public func dispatch(request: HttpRequest, completion: (([String: String], (HttpRequest) -> HttpResponse) ->
+    public func dispatch(request: HttpRequest, completion: @escaping (([String: String], (HttpRequest) -> HttpResponse) ->
         Void)) {
         let params: [String: String] = [:]
         let handler: ((HttpRequest) -> HttpResponse) = { _ in HttpResponse.notFound }
         completion(params, handler)
     }
 
-    private func handleConnection(socket: Socket, completion: ((Socket) -> Void)) {
+    private func handleConnection(socket: Socket, completion: @escaping ((Socket) -> Void)) {
         
         let parser = HttpParser()
         

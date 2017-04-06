@@ -48,7 +48,7 @@ public class HttpServer: HttpServerIO {
     public var middleware = Array<(HttpRequest) -> HttpResponse?>()
 
     public override func dispatch(request: HttpRequest,
-                                      completion: (([String : String], (HttpRequest) -> HttpResponse) -> Void)) {
+                                  completion: @escaping (([String : String], (HttpRequest) -> HttpResponse) -> Void)) {
 
         for layer in middleware {
             if let response = layer(request) {
