@@ -111,6 +111,9 @@ public class HttpServerIO {
         self.state = .stopped
     }
 
+    public func cancel(request : HttpRequest) {
+    }
+    
     public func dispatch(request: HttpRequest, completion: @escaping (([String: String], (HttpRequest) -> HttpResponse) ->
         Void)) {
         let params: [String: String] = [:]
@@ -208,6 +211,6 @@ public class HttpServerIO {
             try writeClosure(context)
         }
 
-        return keepAlive && content.length != -1;
+        return keepAlive && content.length != -1
     }
 }
