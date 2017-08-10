@@ -8,8 +8,11 @@
 
 import Foundation
 
-public class HTTPServerNonblocking: HttpServerIO {
+public class HTTPServerNonblocking: HttpServer {
 
+    public override init() {
+    }
+    
     public override func start(_ port: in_port_t = 8080, forceIPv4: Bool = false, priority: DispatchQoS.QoSClass = DispatchQoS.QoSClass.background) throws {
         guard !self.operating else { return }
         stop()
@@ -86,8 +89,6 @@ public class HTTPServerNonblocking: HttpServerIO {
                     } // END got new incoming connection
                 } // END looping through file descriptors
             } // END for(;;)--and you thought it would never end!
-            
-            self.stop()
         }
         self.state = .running
     }
