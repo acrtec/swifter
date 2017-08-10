@@ -13,7 +13,7 @@ extension Socket {
     ///   - listenAddress: String representation of the address the socket should accept
     ///       connections from. It should be in IPv4 format if forceIPv4 == true,
     ///       otherwise - in IPv6.
-    public class func tcpSocketForListen(_ port: in_port_t, _ forceIPv4: Bool = false, _ maxPendingConnection: Int32 = SOMAXCONN, _ listenAddress: String? = nil, nonblocking : Bool = false) throws -> Socket {
+    public class func tcpSocketForListen(_ port: in_port_t, _ forceIPv4: Bool = false, _ maxPendingConnection: Int32 = SOMAXCONN, _ listenAddress: String? = nil, _ nonblocking : Bool = false) throws -> Socket {
 
         #if os(Linux)
             let socketFileDescriptor = socket(forceIPv4 ? AF_INET : AF_INET6, Int32(SOCK_STREAM.rawValue), 0)
