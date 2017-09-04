@@ -16,7 +16,7 @@ public class HttpServerIO {
 
     public weak var delegate : HttpServerIODelegate?
 
-    private var socket = Socket(socketFileDescriptor: -1)
+    internal var socket = Socket(socketFileDescriptor: -1)
     private var sockets = Set<Socket>()
 
     public enum HttpServerIOState: Int32 {
@@ -28,7 +28,7 @@ public class HttpServerIO {
 
     private var stateValue: Int32 = HttpServerIOState.stopped.rawValue
 
-    public private(set) var state: HttpServerIOState {
+    public internal(set) var state: HttpServerIOState {
         get {
             return HttpServerIOState(rawValue: stateValue)!
         }
@@ -111,6 +111,9 @@ public class HttpServerIO {
         self.state = .stopped
     }
 
+    public func cancel(request : HttpRequest) {
+    }
+    
     public func dispatch(request: HttpRequest, completion: @escaping (([String: String], (HttpRequest) -> HttpResponse) ->
         Void)) {
         let params: [String: String] = [:]
@@ -182,7 +185,7 @@ public class HttpServerIO {
         }
     }
 
-    private func respond(_ socket: Socket, response: HttpResponse, keepAlive: Bool) throws -> Bool {
+    internal func respond(_ socket: Socket, response: HttpResponse, keepAlive: Bool) throws -> Bool {
         guard self.operating else { return false }
 
         try socket.writeUTF8("HTTP/1.1 \(response.statusCode()) \(response.reasonPhrase())\r\n")
@@ -208,6 +211,6 @@ public class HttpServerIO {
             try writeClosure(context)
         }
 
-        return keepAlive && content.length != -1;
+        return keepAlive && content.length != -1
     }
 }

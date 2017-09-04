@@ -66,6 +66,14 @@ public class HttpServer: HttpServerIO {
         }
     }
     
+    public override func cancel(request : HttpRequest) {
+        if let notFoundHandler = self.notFoundHandler {
+            notFoundHandler.cancel(request: request)
+        } else {
+            self.router.cancel(request: request)
+        }
+    }
+    
     public struct MethodRoute {
         public let method: String
         public let router: HttpRouter
