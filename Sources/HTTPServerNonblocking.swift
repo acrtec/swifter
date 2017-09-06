@@ -59,6 +59,14 @@ public class HTTPServerNonblocking: HttpServer {
                                 #if DEBUG
                                     print("Accept Failed")
                                 #endif
+                                self.stop()
+                                DispatchQueue.main.asyncAfter(
+                                    deadline: DispatchTime.now() + Double(Int64(1 * Double(NSEC_PER_SEC))) / Double(NSEC_PER_SEC), execute: {
+                                        do {
+                                            try self.start(port, forceIPv4: forceIPv4, priority: priority)
+                                        } catch {}
+                                })
+                                return
                             } else {
                                 fdSet(newfd, set: &master); // add to master set
                                 if (newfd > fdmax) {    // keep track of the max
