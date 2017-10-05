@@ -38,11 +38,13 @@ public class HTTPServerNonblocking: HttpServer {
                 #if DEBUG
                     print("Waiting for select...")
                 #endif
+                ProxyLog.shared.log(string: "Waiting for select...")
                 var timeout = timeval(tv_sec: 3*60, tv_usec: 0)
                 if select(fdmax+1, &read_fds, nil, nil, &timeout) == -1 {
                     #if DEBUG
                         print("Select failed = \(timeout)")
                     #endif
+                    ProxyLog.shared.log(string: "Select failed = \(timeout)")
                     continue
                 }
                 
@@ -59,6 +61,7 @@ public class HTTPServerNonblocking: HttpServer {
                                 #if DEBUG
                                     print("Accept Failed")
                                 #endif
+                                ProxyLog.shared.log(string: "Accept Failed")
                                 self.stop()
                                 DispatchQueue.main.asyncAfter(
                                     deadline: DispatchTime.now() + Double(Int64(1 * Double(NSEC_PER_SEC))) / Double(NSEC_PER_SEC), execute: {
@@ -75,12 +78,14 @@ public class HTTPServerNonblocking: HttpServer {
                                 #if DEBUG
                                     print("\tSelected new connection: \(newfd)")
                                 #endif
+                                ProxyLog.shared.log(string: "\tSelected new connection: \(newfd)")
                             }
                             
                         } else {
                             #if DEBUG
                                 print("\tHandle data from the client on \(i)")
                             #endif
+                            ProxyLog.shared.log(string: "\tHandle data from the client on \(i)")
                             let socket = Socket(socketFileDescriptor: i)
                             
                             fdClr(i, set: &master)
@@ -88,6 +93,7 @@ public class HTTPServerNonblocking: HttpServer {
                                 #if DEBUG
                                     print("\tReturned from the client on \(i) - keep connection: \(keepConnection)")
                                 #endif
+                                ProxyLog.shared.log(string: "\tReturned from the client on \(i) - keep connection: \(keepConnection)")
                                 if !keepConnection {
                                     socket.close()
                                 }
@@ -118,6 +124,7 @@ public class HTTPServerNonblocking: HttpServer {
                             #if DEBUG
                                 print("\t\tResponse on - \(socket.socketFileDescriptor) - \(request.path) - \(range ?? "") - \(response.statusCode())")
                             #endif
+                            ProxyLog.shared.log(string: "\t\tResponse on - \(socket.socketFileDescriptor) - \(request.path) - \(range ?? "") - \(response.statusCode())")
                             keepConnection = try self.respond(socket, response: response, keepAlive: keepConnection)
                         }
                     } catch {

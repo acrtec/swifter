@@ -137,6 +137,7 @@ public class HttpServerIO {
                     }
                 } catch {
                     print("Failed to send response: \(error)")
+                    ProxyLog.shared.log(string: "Failed to send response: \(error)")
                     socket.close()
                     completion(socket)
                 }
