@@ -13,7 +13,7 @@ public class ProxyLog {
     fileprivate init() { }
     public static let shared: ProxyLog = ProxyLog()
     
-    private(set) var logString : String = ""
+    public private(set) var logString : String = ""
     
     private let accessQueue = DispatchQueue(label: "ProxyLog")
     private let semaphore = DispatchSemaphore(value: 1)
