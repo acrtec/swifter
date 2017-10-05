@@ -7,7 +7,7 @@
 
 import Foundation
 
-class ProxyLog {
+public class ProxyLog {
     
     //Singleton pattern
     fileprivate init() { }
