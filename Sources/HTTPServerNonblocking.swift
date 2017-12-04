@@ -63,7 +63,7 @@ public class HTTPServerNonblocking: HttpServer {
                                 #endif
                                 ProxyLog.shared.log(string: "Accept Failed")
                                 self.stop()
-                                DispatchQueue.main.asyncAfter(
+                                DispatchQueue.global().asyncAfter(
                                     deadline: DispatchTime.now() + Double(Int64(1 * Double(NSEC_PER_SEC))) / Double(NSEC_PER_SEC), execute: {
                                         do {
                                             try self.start(port, forceIPv4: forceIPv4, priority: priority)
