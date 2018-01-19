@@ -35,12 +35,12 @@ public class HTTPServerNonblocking: HttpServer {
             while true {
                 fdZero(&read_fds)
                 read_fds = master
-                #if DEBUG
+                #if LOGDEBUG
                     print("Waiting for select...")
                 #endif
                 var timeout = timeval(tv_sec: 3*60, tv_usec: 0)
                 if select(fdmax+1, &read_fds, nil, nil, &timeout) == -1 {
-                    #if DEBUG
+                    #if LOGDEBUG
                         print("Select failed = \(timeout)")
                     #endif
                     continue
@@ -56,7 +56,7 @@ public class HTTPServerNonblocking: HttpServer {
                             let newfd = accept(self.socket.socketFileDescriptor, &addr, &len)
                             
                             if newfd == -1 {
-                                #if DEBUG
+                                #if LOGDEBUG
                                     print("Accept Failed")
                                 #endif
                                 self.stop()
@@ -72,20 +72,20 @@ public class HTTPServerNonblocking: HttpServer {
                                 if (newfd > fdmax) {    // keep track of the max
                                     fdmax = newfd;
                                 }
-                                #if DEBUG
+                                #if LOGDEBUG
                                     print("\tSelected new connection: \(newfd)")
                                 #endif
                             }
                             
                         } else {
-                            #if DEBUG
+                            #if LOGDEBUG
                                 print("\tHandle data from the client on \(i)")
                             #endif
                             let socket = Socket(socketFileDescriptor: i)
                             
                             fdClr(i, set: &master)
                             self.handleConnection(socket: socket) { socket, keepConnection in
-                                #if DEBUG
+                                #if LOGDEBUG
                                     print("\tReturned from the client on \(i) - keep connection: \(keepConnection)")
                                 #endif
                                 if !keepConnection {
@@ -115,7 +115,7 @@ public class HTTPServerNonblocking: HttpServer {
                     var keepConnection = parser.supportsKeepAlive(request.headers)
                     do {
                         if self.operating {
-                            #if DEBUG
+                            #if LOGDEBUG
                                 print("\t\tResponse on - \(socket.socketFileDescriptor) - \(request.path) - \(range ?? "") - \(response.statusCode())")
                             #endif
                             keepConnection = try self.respond(socket, response: response, keepAlive: keepConnection)
