@@ -19,6 +19,17 @@ public class HTTPServerNonblocking: HttpServer {
         self.state = .starting
         let address = forceIPv4 ? listenAddressIPv4 : listenAddressIPv6
         self.socket = try Socket.tcpSocketForListen(port, forceIPv4, SOMAXCONN, address, true)
+        
+        let restartBlock = {
+            self.stop()
+            DispatchQueue.global().asyncAfter(
+                deadline: DispatchTime.now() + Double(Int64(1 * Double(NSEC_PER_SEC))) / Double(NSEC_PER_SEC), execute: {
+                    do {
+                        try self.start(port, forceIPv4: forceIPv4, priority: priority)
+                    } catch {}
+            })
+        }
+        
         DispatchQueue.global(qos: priority).async { [weak self] in
             guard let `self` = self else { return }
             guard self.operating else { return }
@@ -39,11 +50,18 @@ public class HTTPServerNonblocking: HttpServer {
                     print("Waiting for select...")
                 #endif
                 var timeout = timeval(tv_sec: 3*60, tv_usec: 0)
-                if select(fdmax+1, &read_fds, nil, nil, &timeout) == -1 {
+                let result = select(fdmax+1, &read_fds, nil, nil, &timeout)
+                if result == 0 {
                     #if LOGDEBUG
-                        print("Select failed = \(timeout)")
+                        print("Select failed on timeout = \(timeout)")
                     #endif
                     continue
+                } else if result < 0 {
+                    #if LOGDEBUG
+                    print("Select failed on error = \(errno)")
+                    #endif
+                    restartBlock()
+                    return
                 }
                 
                 // run through the existing connections looking for data to read
@@ -55,22 +73,16 @@ public class HTTPServerNonblocking: HttpServer {
                             var len: socklen_t = 0
                             let newfd = accept(self.socket.socketFileDescriptor, &addr, &len)
                             
-                            if newfd == -1 {
+                            if newfd == -1 || newfd >= __DARWIN_FD_SETSIZE {
                                 #if LOGDEBUG
                                     print("Accept Failed")
                                 #endif
-                                self.stop()
-                                DispatchQueue.global().asyncAfter(
-                                    deadline: DispatchTime.now() + Double(Int64(1 * Double(NSEC_PER_SEC))) / Double(NSEC_PER_SEC), execute: {
-                                        do {
-                                            try self.start(port, forceIPv4: forceIPv4, priority: priority)
-                                        } catch {}
-                                })
+                                restartBlock()
                                 return
                             } else {
-                                fdSet(newfd, set: &master); // add to master set
+                                fdSet(newfd, set: &master) // add to master set
                                 if (newfd > fdmax) {    // keep track of the max
-                                    fdmax = newfd;
+                                    fdmax = newfd
                                 }
                                 #if LOGDEBUG
                                     print("\tSelected new connection: \(newfd)")
@@ -100,7 +112,7 @@ public class HTTPServerNonblocking: HttpServer {
         }
         self.state = .running
     }
-        
+    
     private func handleConnection(socket: Socket, completion: @escaping ((_ socket : Socket, _ keepConnection: Bool) -> Void)) {
         
         let parser = HttpParser()
