@@ -9,7 +9,7 @@
 import Foundation
 
 public class HTTPServerNonblocking: HttpServer {
-
+    
     public override init() {
     }
     
@@ -34,71 +34,89 @@ public class HTTPServerNonblocking: HttpServer {
             guard let `self` = self else { return }
             guard self.operating else { return }
             
-            var master = fd_set()
-            var read_fds = fd_set()
+            //            var master = fd_set()
+            //            var read_fds = fd_set()
             
-            fdZero(&master)
+            var poll_set : [pollfd] = []
+            var numfds : nfds_t = 0
             
-            var fdmax = self.socket.socketFileDescriptor
+            //            fdZero(&master)
             
-            fdSet(fdmax, set: &master)
+            //            var fdmax = self.socket.socketFileDescriptor
+            
+            poll_set.append(pollfd())
+            poll_set[0].fd = self.socket.socketFileDescriptor
+            poll_set[0].events = Int16(POLLIN)
+            numfds+=1
+            
+            //            fdSet(fdmax, set: &master)
             
             while true {
-                fdZero(&read_fds)
-                read_fds = master
+                //                fdZero(&read_fds)
+                //                read_fds = master
                 #if LOGDEBUG
-                    print("Waiting for select...")
+                print("Waiting for select...")
                 #endif
                 var timeout = timeval(tv_sec: 3*60, tv_usec: 0)
-                let result = select(fdmax+1, &read_fds, nil, nil, &timeout)
-                if result == 0 {
-                    #if LOGDEBUG
-                        print("Select failed on timeout = \(timeout)")
-                    #endif
-                    continue
-                } else if result < 0 {
-                    #if LOGDEBUG
-                    print("Select failed on error = \(errno)")
-                    #endif
-                    restartBlock()
-                    return
-                }
+                //                let result = select(fdmax+1, &read_fds, nil, nil, &timeout)
+                let result = poll(&poll_set, numfds, 5000)
+                //                if result == 0 {
+                ////                    #if LOGDEBUG
+                //                        print("Select failed on timeout = \(timeout)")
+                ////                    #endif
+                //                    continue
+                //                } else if result < 0 {
+                ////                    #if LOGDEBUG
+                //                    print("Select failed on error = \(numfds) - \(errno)")
+                ////                    #endif
+                //                    restartBlock()
+                //                    return
+                //                }
+                print("poll: \(result)")
                 
                 // run through the existing connections looking for data to read
-                for i in 0 ..< fdmax+1 {
-                    if fdIsSet(i, set: &read_fds) { // we got one!!
-                        if i == self.socket.socketFileDescriptor {
+                //                for i in 0 ..< fdmax+1 {
+                for i in 0 ..< Int(numfds) {
+                    if poll_set[i].revents & Int16(POLLIN) == 1 {
+                        //                    if fdIsSet(i, set: &read_fds) { // we got one!!
+                        if poll_set[i].fd == self.socket.socketFileDescriptor {
+                            //                        if i == self.socket.socketFileDescriptor {
                             // handle new connections
                             var addr = sockaddr()
                             var len: socklen_t = 0
                             let newfd = accept(self.socket.socketFileDescriptor, &addr, &len)
                             
                             if newfd == -1 || newfd >= __DARWIN_FD_SETSIZE {
-                                #if LOGDEBUG
-                                    print("Accept Failed - \(newfd) - \(errno)")
-                                #endif
+                                //                                #if LOGDEBUG
+                                print("Accept Failed - \(newfd) - \(errno)")
+                                //                                #endif
                                 restartBlock()
                                 return
                             } else {
-                                fdSet(newfd, set: &master) // add to master set
-                                if (newfd > fdmax) {    // keep track of the max
-                                    fdmax = newfd
-                                }
-                                #if LOGDEBUG
-                                    print("\tSelected new connection: \(newfd)")
-                                #endif
+                                poll_set.append(pollfd())
+                                poll_set[Int(numfds)].fd = newfd
+                                poll_set[Int(numfds)].events = Int16(POLLIN)
+                                numfds+=1
+                                //                                fdSet(newfd, set: &master) // add to master set
+                                //                                if (newfd > fdmax) {    // keep track of the max
+                                //                                    fdmax = newfd
+                                //                                }
+                                //                                #if LOGDEBUG
+                                print("\tSelected new connection: \(newfd)")
+                                //                                #endif
                             }
                             
                         } else {
                             #if LOGDEBUG
-                                print("\tHandle data from the client on \(i)")
+                            print("\tHandle data from the client on \(i)")
                             #endif
-                            let socket = Socket(socketFileDescriptor: i)
+                            //                            let socket = Socket(socketFileDescriptor: Int32(i))
+                            let socket = Socket(socketFileDescriptor: poll_set[i].fd)
                             
-                            fdClr(i, set: &master)
+                            //                            fdClr(i, set: &master)
                             self.handleConnection(socket: socket) { socket, keepConnection in
                                 #if LOGDEBUG
-                                    print("\tReturned from the client on \(i) - keep connection: \(keepConnection)")
+                                print("\tReturned from the client on \(i) - keep connection: \(keepConnection)")
                                 #endif
                                 if !keepConnection {
                                     socket.close()
@@ -128,7 +146,7 @@ public class HTTPServerNonblocking: HttpServer {
                     do {
                         if self.operating {
                             #if LOGDEBUG
-                                print("\t\tResponse on - \(socket.socketFileDescriptor) - \(request.path) - \(range ?? "") - \(response.statusCode())")
+                            print("\t\tResponse on - \(socket.socketFileDescriptor) - \(request.path) - \(range ?? "") - \(response.statusCode())")
                             #endif
                             keepConnection = try self.respond(socket, response: response, keepAlive: keepConnection)
                         }
@@ -155,7 +173,6 @@ public class HTTPServerNonblocking: HttpServer {
             completion(socket, false)
         }
     }
-
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
