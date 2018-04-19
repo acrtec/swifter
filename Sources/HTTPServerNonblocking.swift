@@ -38,7 +38,7 @@ public class HTTPServerNonblocking: HttpServer {
             //            var read_fds = fd_set()
             
             var poll_set : [pollfd] = []
-            var numfds : nfds_t = 0
+            //            var numfds : nfds_t = 0
             
             //            fdZero(&master)
             
@@ -47,7 +47,7 @@ public class HTTPServerNonblocking: HttpServer {
             poll_set.append(pollfd())
             poll_set[0].fd = self.socket.socketFileDescriptor
             poll_set[0].events = Int16(POLLIN)
-            numfds+=1
+            //            numfds+=1
             
             //            fdSet(fdmax, set: &master)
             
@@ -59,7 +59,7 @@ public class HTTPServerNonblocking: HttpServer {
                 #endif
                 var timeout = timeval(tv_sec: 3*60, tv_usec: 0)
                 //                let result = select(fdmax+1, &read_fds, nil, nil, &timeout)
-                let result = poll(&poll_set, numfds, 5000)
+                let result = poll(&poll_set, nfds_t(poll_set.count), 5000)
                 //                if result == 0 {
                 ////                    #if LOGDEBUG
                 //                        print("Select failed on timeout = \(timeout)")
@@ -76,7 +76,7 @@ public class HTTPServerNonblocking: HttpServer {
                 
                 // run through the existing connections looking for data to read
                 //                for i in 0 ..< fdmax+1 {
-                for i in 0 ..< Int(numfds) {
+                for i in 0 ..< poll_set.count {
                     if poll_set[i].revents != 0 && poll_set[i].revents == Int16(POLLIN) {
                         //                    if fdIsSet(i, set: &read_fds) { // we got one!!
                         if poll_set[i].fd == self.socket.socketFileDescriptor {
@@ -93,10 +93,11 @@ public class HTTPServerNonblocking: HttpServer {
                                 restartBlock()
                                 return
                             } else {
-                                poll_set.append(pollfd())
-                                poll_set[Int(numfds)].fd = newfd
-                                poll_set[Int(numfds)].events = Int16(POLLIN)
-                                numfds+=1
+                                var poll = pollfd()
+                                poll.fd = newfd
+                                poll.events = Int16(POLLIN)
+                                poll_set.append(poll)
+                                //                                numfds+=1
                                 //                                fdSet(newfd, set: &master) // add to master set
                                 //                                if (newfd > fdmax) {    // keep track of the max
                                 //                                    fdmax = newfd
