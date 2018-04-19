@@ -75,7 +75,7 @@ public class HTTPServerNonblocking: HttpServer {
                             
                             if newfd == -1 || newfd >= __DARWIN_FD_SETSIZE {
                                 #if LOGDEBUG
-                                    print("Accept Failed")
+                                    print("Accept Failed - \(newfd) - \(errno)")
                                 #endif
                                 restartBlock()
                                 return
