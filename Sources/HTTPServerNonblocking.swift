@@ -72,12 +72,12 @@ public class HTTPServerNonblocking: HttpServer {
                 //                    restartBlock()
                 //                    return
                 //                }
-                print("poll: \(result)")
+                //                print("poll: \(result)")
                 
                 // run through the existing connections looking for data to read
                 //                for i in 0 ..< fdmax+1 {
                 for i in 0 ..< Int(numfds) {
-                    if poll_set[i].revents & Int16(POLLIN) == 1 {
+                    if poll_set[i].revents != 0 && poll_set[i].revents == Int16(POLLIN) {
                         //                    if fdIsSet(i, set: &read_fds) { // we got one!!
                         if poll_set[i].fd == self.socket.socketFileDescriptor {
                             //                        if i == self.socket.socketFileDescriptor {
@@ -86,10 +86,10 @@ public class HTTPServerNonblocking: HttpServer {
                             var len: socklen_t = 0
                             let newfd = accept(self.socket.socketFileDescriptor, &addr, &len)
                             
-                            if newfd == -1 || newfd >= __DARWIN_FD_SETSIZE {
-                                //                                #if LOGDEBUG
+                            if newfd == -1 {
+                                #if LOGDEBUG
                                 print("Accept Failed - \(newfd) - \(errno)")
-                                //                                #endif
+                                #endif
                                 restartBlock()
                                 return
                             } else {
@@ -101,25 +101,30 @@ public class HTTPServerNonblocking: HttpServer {
                                 //                                if (newfd > fdmax) {    // keep track of the max
                                 //                                    fdmax = newfd
                                 //                                }
-                                //                                #if LOGDEBUG
+                                #if LOGDEBUG
                                 print("\tSelected new connection: \(newfd)")
-                                //                                #endif
+                                #endif
                             }
                             
                         } else {
                             #if LOGDEBUG
-                            print("\tHandle data from the client on \(i)")
+                            print("\tHandle data from the client on \(poll_set[i].fd)")
                             #endif
                             //                            let socket = Socket(socketFileDescriptor: Int32(i))
                             let socket = Socket(socketFileDescriptor: poll_set[i].fd)
                             
                             //                            fdClr(i, set: &master)
+                            let position = i
+                            poll_set[position].fd = -1
                             self.handleConnection(socket: socket) { socket, keepConnection in
                                 #if LOGDEBUG
-                                print("\tReturned from the client on \(i) - keep connection: \(keepConnection)")
+                                print("\tReturned from the client on \(poll_set[position].fd) - keep connection: \(keepConnection)")
                                 #endif
                                 if !keepConnection {
                                     socket.close()
+                                    poll_set[position].fd = -1
+                                    poll_set[position].events = 0
+                                    poll_set[position].revents = 0
                                 }
                             }
                             
@@ -164,7 +169,6 @@ public class HTTPServerNonblocking: HttpServer {
                     if keepConnection || response.statusCode() == 206 {
                         completion(socket, true)
                     } else {
-                        socket.close()
                         completion(socket, false)
                     }
                 }
