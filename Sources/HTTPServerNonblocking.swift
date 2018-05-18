@@ -100,15 +100,21 @@ public class HTTPServerNonblocking: HttpServer {
                                 #endif
                                 if !keepConnection {
                                     socket.close()
-                                    poll_set[position].fd = -1
-                                    poll_set[position].events = 0
-                                    poll_set[position].revents = 0
                                 }
                             }
                             
                         } // END handle data from client
                     } // END got new incoming connection
                 } // END looping through file descriptors
+                
+                var i = 0
+                while i < poll_set.count {
+                    if (poll_set[i].fd == -1) {
+                        poll_set.remove(at: i)
+                        i -= 1
+                    }
+                    i += 1
+                }
             } // END for(;;)--and you thought it would never end!
         }
         self.state = .running
