@@ -10,6 +10,9 @@ import Foundation
 
 public class HTTPServerNonblocking: HttpServer {
     
+    //Variable for debugging purposes
+    private var previousCount = 0
+    
     public override init() {
     }
     
@@ -44,8 +47,19 @@ public class HTTPServerNonblocking: HttpServer {
                 #if LOGDEBUG
                 print("Waiting for select...")
                 #endif
-                var timeout = timeval(tv_sec: 3*60, tv_usec: 0)
                 let result = poll(&poll_set, nfds_t(poll_set.count), 5000)
+
+                //For debugging purposes -> prints the current state of the polling array at every iteration where the count changes
+//                if poll_set.count != self.previousCount {
+//                    self.previousCount = poll_set.count
+//                    print("=== \(poll_set.count) ===")
+//                    var s = "["
+//                    for poll in poll_set {
+//                        s += "\(poll.fd) (\(poll.revents)), "
+//                    }
+//                    s += "]"
+//                    print(s)
+//                }
                 
                 //These are currently only for logging purposes
                 if result == 0 {
@@ -109,7 +123,7 @@ public class HTTPServerNonblocking: HttpServer {
                 
                 var i = 0
                 while i < poll_set.count {
-                    if (poll_set[i].fd == -1) {
+                    if poll_set[i].fd == -1 || poll_set[i].revents == POLLIN+POLLHUP {
                         poll_set.remove(at: i)
                         i -= 1
                     }
