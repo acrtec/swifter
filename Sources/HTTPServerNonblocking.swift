@@ -10,10 +10,31 @@ import Foundation
 
 public class HTTPServerNonblocking: HttpServer {
     
+    private var isFirstTime = true
+    private var shouldRestart = false
+    private var timeoutErrorCounter = 0
+    
     //Variable for debugging purposes
     private var previousCount = 0
     
     public override init() {
+        super.init()
+        NotificationCenter.default.addObserver(self, selector: #selector(didBecomeActive), name: NSNotification.Name.UIApplicationDidBecomeActive, object: nil)
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
+    @objc func didBecomeActive(){
+        //Restart the socket every time the app comes back from background, as it might be "dead" for staying too long in background state.
+        if isFirstTime {
+            //Don't restart the socket the very first time, as that will be when the user is opening the app
+            isFirstTime = false
+            return
+        }
+        
+        shouldRestart = true
     }
     
     public override func start(_ port: in_port_t = 8080, forceIPv4: Bool = false, priority: DispatchQoS.QoSClass = DispatchQoS.QoSClass.background) throws {
@@ -22,6 +43,9 @@ public class HTTPServerNonblocking: HttpServer {
         self.state = .starting
         let address = forceIPv4 ? listenAddressIPv4 : listenAddressIPv6
         self.socket = try Socket.tcpSocketForListen(port, forceIPv4, SOMAXCONN, address, true)
+        
+        self.timeoutErrorCounter = 0
+        self.shouldRestart = false
         
         let restartBlock = {
             self.stop()
@@ -44,6 +68,14 @@ public class HTTPServerNonblocking: HttpServer {
             poll_set[0].events = Int16(POLLIN)
             
             while true {
+                if self.shouldRestart {
+                    #if LOGDEBUG
+                    print("Restarting after resuming the app")
+                    #endif
+                    restartBlock()
+                    return
+                }
+                
                 #if LOGDEBUG
                 print("Waiting for select...")
                 #endif
@@ -61,18 +93,29 @@ public class HTTPServerNonblocking: HttpServer {
 //                    print(s)
 //                }
                 
-                //These are currently only for logging purposes
+//                if result <= 0 {
+//                    self.timeoutErrorCounter += 1
+//                    if self.timeoutErrorCounter >= 10 {
+//                        #if LOGDEBUG
+//                        print("Had 10 consecutive timeout or errors, so will restart")
+//                        #endif
+//                        restartBlock()
+//                        return
+//                    }
+//                } else {
+//                    self.timeoutErrorCounter = 0
+//                }
+                
                 if result == 0 {
                     #if LOGDEBUG
                     print("Poll did timeout")
                     #endif
-                    //                    continue
+                    continue
                 } else if result < 0 {
                     #if LOGDEBUG
                     print("Poll failed with error - \(errno)")
                     #endif
-                    //                    restartBlock()
-                    //                    return
+                    continue
                 }
                 
                 // run through the existing connections looking for data to read
