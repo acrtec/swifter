@@ -10,6 +10,8 @@ import Foundation
 
 public class HTTPServerNonblocking: HttpServer {
     
+    private let ProxyDidRestart = Notification.Name("ProxyDidRestart")
+
     private var isFirstTime = true
     private var shouldRestart = false
     private var timeoutErrorCounter = 0
@@ -53,6 +55,9 @@ public class HTTPServerNonblocking: HttpServer {
                 deadline: DispatchTime.now() + Double(Int64(1 * Double(NSEC_PER_SEC))) / Double(NSEC_PER_SEC), execute: {
                     do {
                         try self.start(port, forceIPv4: forceIPv4, priority: priority)
+                        DispatchQueue.global().async {
+                            NotificationCenter.default.post(name: self.ProxyDidRestart, object: nil)
+                        }
                     } catch {}
             })
         }
