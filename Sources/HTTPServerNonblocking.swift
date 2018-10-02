@@ -21,7 +21,7 @@ public class HTTPServerNonblocking: HttpServer {
     
     public override init() {
         super.init()
-        NotificationCenter.default.addObserver(self, selector: #selector(didBecomeActive), name: NSNotification.Name.UIApplication.didBecomeActiveNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(didBecomeActive), name: UIApplication.didBecomeActiveNotification, object: nil)
     }
     
     deinit {
