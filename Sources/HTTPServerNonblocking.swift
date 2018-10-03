@@ -158,7 +158,7 @@ public class HTTPServerNonblocking: HttpServer {
                             poll_set[position].fd = -1
                             self.handleConnection(socket: socket) { socket, keepConnection in
                                 #if LOGDEBUG
-                                print("\tReturned from the client on \(poll_set[position].fd) - keep connection: \(keepConnection)")
+                                print("\tReturned from the client on \(socket.socketFileDescriptor) - keep connection: \(keepConnection)")
                                 #endif
                                 if !keepConnection {
                                     socket.close()
