@@ -26,6 +26,10 @@ extension String {
             fclose(pointer)
         }
         
+        public func seek(_ offset: Int) -> Bool {
+            return (fseek(pointer, offset, SEEK_SET) == 0)
+        }
+        
         public func read(_ data: inout [UInt8]) throws -> Int {
             if data.count <= 0 {
                 return data.count
@@ -111,9 +115,13 @@ extension String {
             var name = ent.pointee.d_name
             let fileName = withUnsafePointer(to: &name) { (ptr) -> String? in
                 #if os(Linux)
-                    return String(validatingUTF8: [CChar](UnsafeBufferPointer<CChar>(start: UnsafePointer(unsafeBitCast(ptr, to: UnsafePointer<CChar>.self)), count: 256)))
+                  return String(validatingUTF8: ptr.withMemoryRebound(to: CChar.self, capacity: Int(ent.pointee.d_reclen), { (ptrc) -> [CChar] in
+                    return [CChar](UnsafeBufferPointer(start: ptrc, count: 256))
+                  }))
                 #else
-                    var buffer = [CChar](UnsafeBufferPointer(start: unsafeBitCast(ptr, to: UnsafePointer<CChar>.self), count: Int(ent.pointee.d_namlen)))
+                    var buffer = ptr.withMemoryRebound(to: CChar.self, capacity: Int(ent.pointee.d_reclen), { (ptrc) -> [CChar] in
+                      return [CChar](UnsafeBufferPointer(start: ptrc, count: Int(ent.pointee.d_namlen)))
+                    })
                     buffer.append(0)
                     return String(validatingUTF8: buffer)
                 #endif
