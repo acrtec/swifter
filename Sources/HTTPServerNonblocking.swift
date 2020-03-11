@@ -188,7 +188,9 @@ public class HTTPServerNonblocking: HttpServer {
         
         if self.operating, let request = try? parser.readHttpRequest(socket) {
             request.address = try? socket.peername()
-            dispatch(request: request, completion: { (params, handler) in
+            dispatch(request: request, completion: {[weak self] (params, handler) in
+                guard let `self` = self else { return }
+                
                 request.params = params
                 let response = handler(request)
                 DispatchQueue.global().async {
