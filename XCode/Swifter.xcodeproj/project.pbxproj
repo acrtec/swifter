@@ -576,7 +576,7 @@
 				TargetAttributes = {
 					7AE893E61C05127900A29F63 = {
 						CreatedOnToolsVersion = 7.1;
-						LastSwiftMigration = "";
+						LastSwiftMigration = 1130;
 					};
 					7AE893FA1C0512C400A29F63 = {
 						CreatedOnToolsVersion = 7.1;
@@ -600,6 +600,7 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				English,
 				en,
 				Base,
 			);
@@ -924,7 +925,7 @@
 				PRODUCT_NAME = Swifter;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
-				SWIFT_VERSION = 4.2;
+				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
@@ -951,7 +952,7 @@
 				PRODUCT_NAME = Swifter;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
-				SWIFT_VERSION = 4.2;
+				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "";
 			};
