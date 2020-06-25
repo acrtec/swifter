@@ -20,9 +20,9 @@ import Foundation
             var writeCounter = 0
             while writeCounter < readResult {
                 #if os(Linux)
-                    let writeResult = send(target, &buffer + writeCounter, readResult - writeCounter, Int32(MSG_NOSIGNAL))
+                    let writeResult = send(target, (&buffer + writeCounter) as UnsafeRawPointer, readResult - writeCounter, Int32(MSG_NOSIGNAL))
                 #else
-                    let writeResult = write(target, &buffer + writeCounter, readResult - writeCounter)
+                    let writeResult = write(target, (&buffer + writeCounter) as UnsafeRawPointer, readResult - writeCounter)
                 #endif
                 guard writeResult > 0 else {
                     return Int32(writeResult)
